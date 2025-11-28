@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Search, Plus, X, Loader2, ScanBarcode, Image as ImageIcon, AlertTriangle, RotateCcw } from 'lucide-react';
 import { analyzeFoodImage, analyzeFoodText } from '../services/geminiService';
 import { FoodItem } from '../types';
@@ -18,11 +18,30 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, [stream]);
+
   const startCamera = async () => {
     try {
       setLoading(true);
       setError(null);
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      // Stop previous stream if exists
+      stopCamera();
+      
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
@@ -37,11 +56,8 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
     }
   };
 
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
+  const closeCameraMode = () => {
+    stopCamera();
     setMode('view');
   };
 
@@ -70,7 +86,7 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
             image: canvas.toDataURL('image/jpeg', 0.1) // Low res thumbnail
           };
           onAddFood(newFood);
-          stopCamera();
+          closeCameraMode();
         } else {
           setError("Could not identify food. Try closer or better lighting.");
         }
@@ -186,7 +202,7 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
                 </div>
             </div>
 
-            <button onClick={stopCamera} className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors pointer-events-auto">
+            <button onClick={closeCameraMode} className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors pointer-events-auto">
               <X size={24} />
             </button>
 

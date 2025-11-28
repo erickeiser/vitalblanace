@@ -39,24 +39,33 @@ const getAiClient = () => {
     // Direct access allows bundlers to replace 'process.env.API_KEY' with the string literal
     apiKey = process.env.API_KEY;
   } catch (e) {
-    console.warn("VitalBalance: Could not read process.env.API_KEY directly.");
+    // Safe to ignore ReferenceError if process is undefined
   }
   
   if (!apiKey) {
     console.error("VitalBalance: API Key is missing.");
-    throw new Error("System configuration error: API Key is missing.");
+    throw new Error("System configuration error: API Key is missing. Please ensure it is set in your environment variables.");
   }
   
   aiClient = new GoogleGenAI({ apiKey });
   return aiClient;
 };
 
-// Helper to clean JSON string from Markdown wrapping
+// Helper to clean JSON string from Markdown wrapping and locate valid JSON object
 const cleanJson = (text: string): string => {
   if (!text) return "";
   try {
-    // Remove markdown code blocks if present (e.g., ```json ... ```)
+    // Remove markdown code blocks
     let clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+    
+    // Attempt to extract just the JSON object part if there is extra text
+    const firstOpen = clean.indexOf('{');
+    const lastClose = clean.lastIndexOf('}');
+    
+    if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
+      clean = clean.substring(firstOpen, lastClose + 1);
+    }
+    
     return clean.trim();
   } catch (e) {
     return text;
@@ -84,11 +93,12 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
       config: {
         responseMimeType: "application/json",
         responseSchema: FOOD_IDENTIFICATION_SCHEMA,
+        temperature: 0.1,      // Low temperature for deterministic JSON
       },
     });
 
     const text = cleanJson(response.text || "");
-    if (!text) return null;
+    if (!text) throw new Error("Empty response from AI");
     
     const data = JSON.parse(text);
     return {
@@ -117,11 +127,12 @@ export const analyzeFoodText = async (description: string): Promise<{ name: stri
       config: {
         responseMimeType: "application/json",
         responseSchema: FOOD_IDENTIFICATION_SCHEMA,
+        temperature: 0.1,
       },
     });
 
     const text = cleanJson(response.text || "");
-    if (!text) return null;
+    if (!text) throw new Error("Empty response from AI");
 
     const data = JSON.parse(text);
     return {
@@ -157,15 +168,16 @@ export const generateJuiceRecipe = async (preferences: string, healthConditions:
                 ingredients: { type: Type.ARRAY, items: { type: Type.STRING } },
                 instructions: { type: Type.ARRAY, items: { type: Type.STRING } },
                 benefits: { type: Type.ARRAY, items: { type: Type.STRING } },
-                macrosEstimate: NUTRITION_SCHEMA // Use clean nutrition schema without name/barcode instructions
+                macrosEstimate: NUTRITION_SCHEMA 
             },
             required: ["name", "description", "ingredients", "instructions", "benefits", "macrosEstimate"]
         },
+        temperature: 0.2,
       },
     });
 
     const text = cleanJson(response.text || "");
-    if (!text) return null;
+    if (!text) throw new Error("Empty response from AI");
 
     const data = JSON.parse(text);
     return {
