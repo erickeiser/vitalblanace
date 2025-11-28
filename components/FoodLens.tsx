@@ -54,20 +54,24 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
       
-      const result = await analyzeFoodImage(base64);
-      if (result) {
-        const newFood: FoodItem = {
-          id: Date.now().toString(),
-          ...result.macros,
-          name: result.name,
-          timestamp: Date.now(),
-          type: 'meal', // default
-          image: canvas.toDataURL('image/jpeg', 0.1) // Low res thumbnail
-        };
-        onAddFood(newFood);
-        stopCamera();
-      } else {
-        setError("Could not identify food. Try closer or better lighting.");
+      try {
+        const result = await analyzeFoodImage(base64);
+        if (result) {
+          const newFood: FoodItem = {
+            id: Date.now().toString(),
+            ...result.macros,
+            name: result.name,
+            timestamp: Date.now(),
+            type: 'meal', // default
+            image: canvas.toDataURL('image/jpeg', 0.1) // Low res thumbnail
+          };
+          onAddFood(newFood);
+          stopCamera();
+        } else {
+          setError("Could not identify food. Try closer or better lighting.");
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Analysis failed");
       }
     }
     setLoading(false);
@@ -79,20 +83,24 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
     setLoading(true);
     setError(null);
     
-    const result = await analyzeFoodText(query);
-    if (result) {
-      const newFood: FoodItem = {
-        id: Date.now().toString(),
-        ...result.macros,
-        name: result.name,
-        timestamp: Date.now(),
-        type: 'meal',
-      };
-      onAddFood(newFood);
-      setQuery('');
-      setMode('view');
-    } else {
-      setError("Could not analyze text. Please try again.");
+    try {
+      const result = await analyzeFoodText(query);
+      if (result) {
+        const newFood: FoodItem = {
+          id: Date.now().toString(),
+          ...result.macros,
+          name: result.name,
+          timestamp: Date.now(),
+          type: 'meal',
+        };
+        onAddFood(newFood);
+        setQuery('');
+        setMode('view');
+      } else {
+        setError("Could not analyze text. Please try again.");
+      }
+    } catch (e) {
+        setError(e instanceof Error ? e.message : "Analysis failed");
     }
     setLoading(false);
   };
@@ -136,17 +144,28 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
 
       {/* Mode: Camera Scanner */}
       {mode === 'scan' && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
-          <div className="relative w-full max-w-md bg-black rounded-3xl overflow-hidden aspect-[3/4] shadow-2xl border border-slate-700">
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4">
+          <div className="relative w-full max-w-md bg-black rounded-3xl overflow-hidden aspect-[3/4] shadow-2xl border border-slate-700 group">
             <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
             <canvas ref={canvasRef} className="hidden" />
             
-            {/* Overlay UI */}
-            <div className="absolute inset-0 border-2 border-white/30 m-8 rounded-2xl pointer-events-none flex items-center justify-center flex-col gap-4">
-                <ScanBarcode className="text-white/40 w-48 h-48 stroke-1" />
-                <p className="text-white/60 text-sm font-medium bg-black/40 px-3 py-1 rounded-full backdrop-blur-md">
-                   Align Food or Barcode
-                </p>
+            {/* Overlay UI for Barcode/Food */}
+            <div className="absolute inset-0 m-8 pointer-events-none flex flex-col items-center justify-center">
+                {/* Scanner Frame */}
+                <div className="w-64 h-48 border-2 border-white/50 rounded-lg relative flex items-center justify-center">
+                    <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-teal-500 -mt-1 -ml-1"></div>
+                    <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-teal-500 -mt-1 -mr-1"></div>
+                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-teal-500 -mb-1 -ml-1"></div>
+                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-teal-500 -mb-1 -mr-1"></div>
+                    
+                    {/* Animated Scan Line */}
+                    <div className="w-full h-0.5 bg-red-500/80 shadow-[0_0_8px_rgba(239,68,68,0.8)] absolute animate-[scan_2s_ease-in-out_infinite]"></div>
+                </div>
+                
+                <div className="mt-8 flex items-center gap-2 text-white/80 bg-black/40 px-4 py-2 rounded-full backdrop-blur-md">
+                   <ScanBarcode size={20} />
+                   <span className="text-sm font-medium">Point at Food or Barcode</span>
+                </div>
             </div>
 
             <button onClick={stopCamera} className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors">
@@ -168,9 +187,6 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
                 </div>
             )}
           </div>
-          <p className="text-slate-400 mt-4 text-sm font-medium text-center">
-             Snap a photo of your meal<br/>or scan a barcode for instant macros.
-          </p>
         </div>
       )}
 
@@ -240,6 +256,16 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
           ))
         )}
       </div>
+      
+      {/* Add CSS for scan animation */}
+      <style>{`
+        @keyframes scan {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 };
