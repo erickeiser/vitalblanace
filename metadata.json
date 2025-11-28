@@ -1,0 +1,7 @@
+{
+  "name": "VitalBalance AI",
+  "description": "A comprehensive health management dashboard for tracking blood pressure, blood sugar, and nutrition using AI-powered food analysis and juicing recommendations.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
