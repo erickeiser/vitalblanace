@@ -30,7 +30,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
             },
           },
           {
-            text: "Analyze this image. If it is a food item, meal, or nutrition label, provide the name and estimated nutritional values. If it is a barcode, try to read the digits and identify the product contextually, or describe the product itself. Be as accurate as possible for a health tracker.",
+            text: "Analyze this image. If it contains a barcode, read the barcode digits and identify the specific product and its nutritional values. If it is a meal or food item, estimate the portion size and nutritional content with high accuracy. If it is a nutrition label, extract the values exactly. Return the results in JSON format.",
           },
         ],
       },
@@ -65,7 +65,7 @@ export const analyzeFoodText = async (description: string): Promise<{ name: stri
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Analyze the nutritional content of the following food description: "${description}". Provide estimates for a standard serving size if not specified.`,
+      contents: `Analyze the nutritional content of the following food description: "${description}". Provide estimates for a standard serving size if not specified. Be accurate with macros.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: MACRO_SCHEMA,

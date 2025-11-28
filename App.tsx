@@ -22,16 +22,28 @@ const App: React.FC = () => {
   const [recipes, setRecipes] = useState<JuiceRecipe[]>([]);
   const [vitals, setVitals] = useState<VitalLog[]>([]);
 
-  // Load initial data simulation
+  // Load initial data simulation safely
   useEffect(() => {
-    const savedFood = localStorage.getItem('foodLogs');
-    if (savedFood) setFoodLogs(JSON.parse(savedFood));
+    try {
+      const savedFood = localStorage.getItem('foodLogs');
+      if (savedFood) setFoodLogs(JSON.parse(savedFood));
+    } catch (e) {
+      console.error("Failed to load food logs", e);
+    }
     
-    const savedRecipes = localStorage.getItem('recipes');
-    if (savedRecipes) setRecipes(JSON.parse(savedRecipes));
+    try {
+      const savedRecipes = localStorage.getItem('recipes');
+      if (savedRecipes) setRecipes(JSON.parse(savedRecipes));
+    } catch (e) {
+      console.error("Failed to load recipes", e);
+    }
 
-    const savedVitals = localStorage.getItem('vitals');
-    if (savedVitals) setVitals(JSON.parse(savedVitals));
+    try {
+      const savedVitals = localStorage.getItem('vitals');
+      if (savedVitals) setVitals(JSON.parse(savedVitals));
+    } catch (e) {
+      console.error("Failed to load vitals", e);
+    }
   }, []);
 
   // Persist State

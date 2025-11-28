@@ -111,13 +111,13 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
             Track your intake accurately. Use our AI scanner to analyze meals, barcodes, or nutrition labels instantly.
           </p>
           
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             <button 
               onClick={startCamera}
               className="flex items-center gap-2 bg-white text-teal-700 px-6 py-3 rounded-xl font-semibold hover:bg-emerald-50 transition-colors shadow-sm"
             >
               <Camera size={20} />
-              AI Scanner
+              AI Scanner / Barcode
             </button>
             <button 
               onClick={() => setMode('text')}
@@ -142,11 +142,14 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
             <canvas ref={canvasRef} className="hidden" />
             
             {/* Overlay UI */}
-            <div className="absolute inset-0 border-2 border-white/30 m-8 rounded-2xl pointer-events-none flex items-center justify-center">
-                <ScanBarcode className="text-white/20 w-32 h-32" />
+            <div className="absolute inset-0 border-2 border-white/30 m-8 rounded-2xl pointer-events-none flex items-center justify-center flex-col gap-4">
+                <ScanBarcode className="text-white/40 w-48 h-48 stroke-1" />
+                <p className="text-white/60 text-sm font-medium bg-black/40 px-3 py-1 rounded-full backdrop-blur-md">
+                   Align Food or Barcode
+                </p>
             </div>
 
-            <button onClick={stopCamera} className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-full">
+            <button onClick={stopCamera} className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors">
               <X size={24} />
             </button>
 
@@ -165,7 +168,9 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
                 </div>
             )}
           </div>
-          <p className="text-slate-400 mt-4 text-sm font-medium">Point at food, labels, or barcodes</p>
+          <p className="text-slate-400 mt-4 text-sm font-medium text-center">
+             Snap a photo of your meal<br/>or scan a barcode for instant macros.
+          </p>
         </div>
       )}
 
