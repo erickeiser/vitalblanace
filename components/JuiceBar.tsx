@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { generateJuiceRecipe } from '../services/geminiService';
 import { JuiceRecipe } from '../types';
-import { Sparkles, Droplet, Clock, Loader2, Save, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, Droplet, Clock, Loader2, Save, Trash2, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 
 interface JuiceBarProps {
     savedRecipes: JuiceRecipe[];
@@ -15,13 +15,20 @@ export const JuiceBar: React.FC<JuiceBarProps> = ({ savedRecipes, onSaveRecipe, 
     const [loading, setLoading] = useState(false);
     const [generatedRecipe, setGeneratedRecipe] = useState<JuiceRecipe | null>(null);
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     const handleGenerate = async () => {
         if (!healthConditions.trim()) return;
         setLoading(true);
-        const recipe = await generateJuiceRecipe(preferences, healthConditions);
-        setGeneratedRecipe(recipe);
-        setLoading(false);
+        setError(null);
+        try {
+            const recipe = await generateJuiceRecipe(preferences, healthConditions);
+            setGeneratedRecipe(recipe);
+        } catch (err) {
+            setError("Could not generate recipe. Please check your connection or API settings.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const toggleExpand = (id: string) => {
@@ -61,10 +68,17 @@ export const JuiceBar: React.FC<JuiceBarProps> = ({ savedRecipes, onSaveRecipe, 
                     </div>
                 </div>
                 
+                {error && (
+                    <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-xl text-sm">
+                        <AlertCircle size={16} />
+                        {error}
+                    </div>
+                )}
+
                 <button 
                     onClick={handleGenerate}
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white py-4 rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                    className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white py-4 rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70"
                 >
                     {loading ? <Loader2 className="animate-spin"/> : <Sparkles size={20} />}
                     {loading ? "Brewing Recipe..." : "Generate Healing Recipe"}

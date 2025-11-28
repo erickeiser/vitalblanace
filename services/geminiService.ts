@@ -22,9 +22,12 @@ let aiClient: GoogleGenAI | null = null;
 const getAiClient = () => {
   if (aiClient) return aiClient;
 
-  const apiKey = process.env.API_KEY;
+  // Safe access to process.env for browser environments
+  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+  
   if (!apiKey) {
-    throw new Error("API Key is missing. Please ensure process.env.API_KEY is set.");
+    console.error("VitalBalance: API Key is missing in process.env");
+    throw new Error("API configuration missing. Please check app settings.");
   }
   
   // Initialize only when needed and key is present
@@ -46,7 +49,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
             },
           },
           {
-            text: "Analyze this image. 1) Check for a barcode. If found, decode it and identify the exact product and its nutrition. 2) If no barcode, identify the food items and estimate nutrition for the portion shown. Return results in JSON.",
+            text: "Analyze this image. 1) Check for a BARCODE. If a barcode is clearly visible, READ the numbers, identify the EXACT product, and provide its nutrition per serving. 2) If no barcode, identify the food items and estimate nutrition for the portion shown. Return results in JSON.",
           },
         ],
       },
@@ -73,9 +76,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
     };
   } catch (error) {
     console.error("Gemini Vision Error:", error);
-    // Rethrow if it's a configuration error so the UI can show it
-    if (error instanceof Error && error.message.includes("API Key")) throw error;
-    return null;
+    throw error; // Let component handle the specific error message
   }
 };
 
@@ -108,8 +109,7 @@ export const analyzeFoodText = async (description: string): Promise<{ name: stri
     };
   } catch (error) {
     console.error("Gemini Text Error:", error);
-    if (error instanceof Error && error.message.includes("API Key")) throw error;
-    return null;
+    throw error;
   }
 };
 
@@ -150,7 +150,6 @@ export const generateJuiceRecipe = async (preferences: string, healthConditions:
     };
   } catch (error) {
     console.error("Gemini Recipe Error:", error);
-    if (error instanceof Error && error.message.includes("API Key")) throw error;
-    return null;
+    throw error;
   }
 };

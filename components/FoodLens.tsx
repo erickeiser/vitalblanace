@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Camera, Search, Plus, X, Loader2, ScanBarcode, Image as ImageIcon } from 'lucide-react';
+import { Camera, Search, Plus, X, Loader2, ScanBarcode, Image as ImageIcon, AlertTriangle } from 'lucide-react';
 import { analyzeFoodImage, analyzeFoodText } from '../services/geminiService';
 import { FoodItem } from '../types';
 
@@ -29,7 +29,9 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
       setError(null);
     } catch (err) {
       console.error("Camera error", err);
-      setError("Unable to access camera. Please use text entry.");
+      // Automatically switch back to avoid getting stuck
+      setError("Camera access denied or unavailable. Please use text search.");
+      setMode('view');
     }
   };
 
@@ -71,7 +73,7 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
           setError("Could not identify food. Try closer or better lighting.");
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Analysis failed");
+        setError("Analysis failed. Please check connection/API key or try text search.");
       }
     }
     setLoading(false);
@@ -100,7 +102,7 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
         setError("Could not analyze text. Please try again.");
       }
     } catch (e) {
-        setError(e instanceof Error ? e.message : "Analysis failed");
+        setError("Analysis failed. Please check connection or API key.");
     }
     setLoading(false);
   };
@@ -135,6 +137,13 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
               Text Search
             </button>
           </div>
+          
+          {error && (
+            <div className="mt-4 flex items-center gap-2 text-white bg-red-500/30 p-2 rounded-lg backdrop-blur-sm border border-red-400/30">
+               <AlertTriangle size={16} className="shrink-0"/>
+               <span className="text-sm">{error}</span>
+            </div>
+          )}
         </div>
         
         {/* Decorative Circles */}
@@ -168,11 +177,11 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
                 </div>
             </div>
 
-            <button onClick={stopCamera} className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors">
+            <button onClick={stopCamera} className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors pointer-events-auto">
               <X size={24} />
             </button>
 
-            <div className="absolute bottom-8 left-0 right-0 flex justify-center">
+            <div className="absolute bottom-8 left-0 right-0 flex justify-center pointer-events-auto">
               <button 
                 onClick={captureAndAnalyze}
                 disabled={loading}
@@ -192,7 +201,7 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
 
       {/* Mode: Text Entry */}
       {mode === 'text' && (
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 animate-in fade-in zoom-in-95">
            <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-800">Log by Text</h3>
               <button onClick={() => setMode('view')} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
