@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Camera, Search, Plus, X, Loader2, ScanBarcode, Image as ImageIcon, AlertTriangle } from 'lucide-react';
+import { Camera, Search, Plus, X, Loader2, ScanBarcode, Image as ImageIcon, AlertTriangle, RotateCcw } from 'lucide-react';
 import { analyzeFoodImage, analyzeFoodText } from '../services/geminiService';
 import { FoodItem } from '../types';
 
@@ -20,18 +20,20 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
 
   const startCamera = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
       setMode('scan');
-      setError(null);
+      setLoading(false);
     } catch (err) {
       console.error("Camera error", err);
-      // Automatically switch back to avoid getting stuck
-      setError("Camera access denied or unavailable. Please use text search.");
+      setError("Camera access was denied or is unavailable. Check your browser permissions.");
       setMode('view');
+      setLoading(false);
     }
   };
 
@@ -139,9 +141,16 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
           </div>
           
           {error && (
-            <div className="mt-4 flex items-center gap-2 text-white bg-red-500/30 p-2 rounded-lg backdrop-blur-sm border border-red-400/30">
-               <AlertTriangle size={16} className="shrink-0"/>
-               <span className="text-sm">{error}</span>
+            <div className="mt-4 flex items-center justify-between gap-2 text-white bg-red-500/30 p-2 rounded-lg backdrop-blur-sm border border-red-400/30">
+               <div className="flex items-center gap-2">
+                 <AlertTriangle size={16} className="shrink-0"/>
+                 <span className="text-sm">{error}</span>
+               </div>
+               {error.includes("Camera") && (
+                 <button onClick={startCamera} className="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded flex items-center gap-1 transition-colors">
+                   <RotateCcw size={12}/> Retry
+                 </button>
+               )}
             </div>
           )}
         </div>

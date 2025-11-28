@@ -1,17 +1,28 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { JuiceRecipe, MacroNutrients } from "../types";
 
-// Schema for structured output
-const MACRO_SCHEMA = {
+// Base nutrition schema (just the numbers)
+const NUTRITION_PROPERTIES = {
+  calories: { type: Type.NUMBER, description: "Estimated calories (kcal)." },
+  protein: { type: Type.NUMBER, description: "Protein content in grams." },
+  carbs: { type: Type.NUMBER, description: "Total carbohydrates in grams." },
+  fat: { type: Type.NUMBER, description: "Total fat in grams." },
+  sugar: { type: Type.NUMBER, description: "Sugar content in grams." },
+  sodium: { type: Type.NUMBER, description: "Sodium content in milligrams." },
+};
+
+const NUTRITION_SCHEMA = {
+  type: Type.OBJECT,
+  properties: NUTRITION_PROPERTIES,
+  required: ["calories", "protein", "carbs", "fat", "sugar", "sodium"],
+};
+
+// Extended schema for food identification (includes name)
+const FOOD_IDENTIFICATION_SCHEMA = {
   type: Type.OBJECT,
   properties: {
     name: { type: Type.STRING, description: "A short, descriptive name of the food identified. If a barcode is detected, return the exact product name from the barcode." },
-    calories: { type: Type.NUMBER, description: "Estimated calories (kcal)." },
-    protein: { type: Type.NUMBER, description: "Protein content in grams." },
-    carbs: { type: Type.NUMBER, description: "Total carbohydrates in grams." },
-    fat: { type: Type.NUMBER, description: "Total fat in grams." },
-    sugar: { type: Type.NUMBER, description: "Sugar content in grams." },
-    sodium: { type: Type.NUMBER, description: "Sodium content in milligrams." },
+    ...NUTRITION_PROPERTIES
   },
   required: ["name", "calories", "protein", "carbs", "fat", "sugar", "sodium"],
 };
@@ -22,17 +33,34 @@ let aiClient: GoogleGenAI | null = null;
 const getAiClient = () => {
   if (aiClient) return aiClient;
 
-  // Safe access to process.env for browser environments
-  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+  let apiKey: string | undefined;
   
-  if (!apiKey) {
-    console.error("VitalBalance: API Key is missing in process.env");
-    throw new Error("API configuration missing. Please check app settings.");
+  try {
+    // Direct access allows bundlers to replace 'process.env.API_KEY' with the string literal
+    apiKey = process.env.API_KEY;
+  } catch (e) {
+    console.warn("VitalBalance: Could not read process.env.API_KEY directly.");
   }
   
-  // Initialize only when needed and key is present
+  if (!apiKey) {
+    console.error("VitalBalance: API Key is missing.");
+    throw new Error("System configuration error: API Key is missing.");
+  }
+  
   aiClient = new GoogleGenAI({ apiKey });
   return aiClient;
+};
+
+// Helper to clean JSON string from Markdown wrapping
+const cleanJson = (text: string): string => {
+  if (!text) return "";
+  try {
+    // Remove markdown code blocks if present (e.g., ```json ... ```)
+    let clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+    return clean.trim();
+  } catch (e) {
+    return text;
+  }
 };
 
 export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; macros: MacroNutrients } | null> => {
@@ -55,11 +83,11 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
       },
       config: {
         responseMimeType: "application/json",
-        responseSchema: MACRO_SCHEMA,
+        responseSchema: FOOD_IDENTIFICATION_SCHEMA,
       },
     });
 
-    const text = response.text;
+    const text = cleanJson(response.text || "");
     if (!text) return null;
     
     const data = JSON.parse(text);
@@ -76,7 +104,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
     };
   } catch (error) {
     console.error("Gemini Vision Error:", error);
-    throw error; // Let component handle the specific error message
+    throw error;
   }
 };
 
@@ -88,11 +116,11 @@ export const analyzeFoodText = async (description: string): Promise<{ name: stri
       contents: `Analyze the nutritional content of the following food description: "${description}". Provide estimates for a standard serving size if not specified. Be accurate with macros.`,
       config: {
         responseMimeType: "application/json",
-        responseSchema: MACRO_SCHEMA,
+        responseSchema: FOOD_IDENTIFICATION_SCHEMA,
       },
     });
 
-    const text = response.text;
+    const text = cleanJson(response.text || "");
     if (!text) return null;
 
     const data = JSON.parse(text);
@@ -118,7 +146,7 @@ export const generateJuiceRecipe = async (preferences: string, healthConditions:
     const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Create a healthy juice recipe tailored for someone with: ${healthConditions}. Preferences/Context: ${preferences}. Include nutritional estimates.`,
+      contents: `Create a healthy juice recipe tailored for someone with: ${healthConditions}. Preferences/Context: ${preferences}. Include nutritional estimates. Return ONLY valid JSON.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -129,13 +157,14 @@ export const generateJuiceRecipe = async (preferences: string, healthConditions:
                 ingredients: { type: Type.ARRAY, items: { type: Type.STRING } },
                 instructions: { type: Type.ARRAY, items: { type: Type.STRING } },
                 benefits: { type: Type.ARRAY, items: { type: Type.STRING } },
-                macrosEstimate: MACRO_SCHEMA
-            }
+                macrosEstimate: NUTRITION_SCHEMA // Use clean nutrition schema without name/barcode instructions
+            },
+            required: ["name", "description", "ingredients", "instructions", "benefits", "macrosEstimate"]
         },
       },
     });
 
-    const text = response.text;
+    const text = cleanJson(response.text || "");
     if (!text) return null;
 
     const data = JSON.parse(text);
@@ -150,6 +179,6 @@ export const generateJuiceRecipe = async (preferences: string, healthConditions:
     };
   } catch (error) {
     console.error("Gemini Recipe Error:", error);
-    throw error;
+    throw new Error("Failed to parse recipe from AI. Please try again.");
   }
 };
