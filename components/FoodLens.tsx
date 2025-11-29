@@ -18,17 +18,24 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
+  // Helper to safely stop all tracks
+  const stopTracks = (mediaStream: MediaStream | null) => {
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
     }
   };
 
-  // Cleanup on unmount
+  const stopCamera = () => {
+    stopTracks(stream);
+    setStream(null);
+  };
+
+  // Cleanup on unmount or stream change
   useEffect(() => {
     return () => {
-      stopCamera();
+      if (stream) {
+        stopTracks(stream);
+      }
     };
   }, [stream]);
 
@@ -36,16 +43,25 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
     try {
       setLoading(true);
       setError(null);
-      // Stop previous stream if exists
-      stopCamera();
       
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
-      });
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+      // Request camera access
+      let mediaStream: MediaStream;
+      try {
+        // Try rear camera first
+        mediaStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' } 
+        });
+      } catch (err) {
+        console.warn("Environment camera failed, trying user camera fallback");
+        // Fallback to any available video (e.g. laptop webcam)
+        mediaStream = await navigator.mediaDevices.getUserMedia({ 
+          video: true 
+        });
       }
+
+      // 1. Set the stream state
+      setStream(mediaStream);
+      // 2. Change mode to render the video element
       setMode('scan');
       setLoading(false);
     } catch (err) {
@@ -55,6 +71,14 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
       setLoading(false);
     }
   };
+
+  // KEY FIX: Attach stream to video element ONLY after render when videoRef is available
+  useEffect(() => {
+    if (mode === 'scan' && stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(e => console.error("Video play error:", e));
+    }
+  }, [mode, stream]);
 
   const closeCameraMode = () => {
     stopCamera();
@@ -67,9 +91,18 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
     setLoading(true);
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    
+    // Ensure we capture the actual video dimensions
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+         setError("Camera not ready. Please wait a moment.");
+         setLoading(false);
+         return;
+    }
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
+    
     if (ctx) {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
@@ -180,7 +213,8 @@ export const FoodLens: React.FC<FoodLensProps> = ({ onAddFood, logs }) => {
       {mode === 'scan' && (
         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4">
           <div className="relative w-full max-w-md bg-black rounded-3xl overflow-hidden aspect-[3/4] shadow-2xl border border-slate-700 group">
-            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+            {/* Added muted and playsInline for better mobile compatibility */}
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
             <canvas ref={canvasRef} className="hidden" />
             
             {/* Overlay UI for Barcode/Food */}
