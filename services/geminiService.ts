@@ -27,29 +27,8 @@ const FOOD_IDENTIFICATION_SCHEMA = {
   required: ["name", "calories", "protein", "carbs", "fat", "sugar", "sodium"],
 };
 
-let aiClient: GoogleGenAI | null = null;
-
-// Helper to get client instance safely
-const getAiClient = () => {
-  if (aiClient) return aiClient;
-
-  let apiKey: string | undefined;
-  
-  try {
-    // Direct access allows bundlers to replace 'process.env.API_KEY' with the string literal
-    apiKey = process.env.API_KEY;
-  } catch (e) {
-    // Safe to ignore ReferenceError if process is undefined
-  }
-  
-  if (!apiKey) {
-    console.error("VitalBalance: API Key is missing.");
-    throw new Error("System configuration error: API Key is missing. Please ensure it is set in your environment variables.");
-  }
-  
-  aiClient = new GoogleGenAI({ apiKey });
-  return aiClient;
-};
+// Initialize the client with environment variable
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Helper to clean JSON string from Markdown wrapping and locate valid JSON object
 const cleanJson = (text: string): string => {
@@ -74,7 +53,6 @@ const cleanJson = (text: string): string => {
 
 export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; macros: MacroNutrients } | null> => {
   try {
-    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: {
@@ -93,7 +71,6 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
       config: {
         responseMimeType: "application/json",
         responseSchema: FOOD_IDENTIFICATION_SCHEMA,
-        temperature: 0.1,      // Low temperature for deterministic JSON
       },
     });
 
@@ -120,14 +97,12 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
 
 export const analyzeFoodText = async (description: string): Promise<{ name: string; macros: MacroNutrients } | null> => {
   try {
-    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Analyze the nutritional content of the following food description: "${description}". Provide estimates for a standard serving size if not specified. Be accurate with macros.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: FOOD_IDENTIFICATION_SCHEMA,
-        temperature: 0.1,
       },
     });
 
@@ -154,7 +129,6 @@ export const analyzeFoodText = async (description: string): Promise<{ name: stri
 
 export const generateJuiceRecipe = async (preferences: string, healthConditions: string): Promise<JuiceRecipe | null> => {
   try {
-    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Create a healthy juice recipe tailored for someone with: ${healthConditions}. Preferences/Context: ${preferences}. Include nutritional estimates. Return ONLY valid JSON.`,
@@ -172,7 +146,6 @@ export const generateJuiceRecipe = async (preferences: string, healthConditions:
             },
             required: ["name", "description", "ingredients", "instructions", "benefits", "macrosEstimate"]
         },
-        temperature: 0.2,
       },
     });
 
