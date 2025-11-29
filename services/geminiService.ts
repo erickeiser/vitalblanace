@@ -27,8 +27,14 @@ const FOOD_IDENTIFICATION_SCHEMA = {
   required: ["name", "calories", "protein", "carbs", "fat", "sugar", "sodium"],
 };
 
-// Initialize the client with environment variable
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let aiClient: GoogleGenAI | null = null;
+
+const getAiClient = (): GoogleGenAI => {
+  if (!aiClient) {
+    aiClient = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  }
+  return aiClient;
+};
 
 // Helper to clean JSON string from Markdown wrapping and locate valid JSON object
 const cleanJson = (text: string): string => {
@@ -53,6 +59,7 @@ const cleanJson = (text: string): string => {
 
 export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; macros: MacroNutrients } | null> => {
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: {
@@ -97,6 +104,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
 
 export const analyzeFoodText = async (description: string): Promise<{ name: string; macros: MacroNutrients } | null> => {
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Analyze the nutritional content of the following food description: "${description}". Provide estimates for a standard serving size if not specified. Be accurate with macros.`,
@@ -129,6 +137,7 @@ export const analyzeFoodText = async (description: string): Promise<{ name: stri
 
 export const generateJuiceRecipe = async (preferences: string, healthConditions: string): Promise<JuiceRecipe | null> => {
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Create a healthy juice recipe tailored for someone with: ${healthConditions}. Preferences/Context: ${preferences}. Include nutritional estimates. Return ONLY valid JSON.`,
