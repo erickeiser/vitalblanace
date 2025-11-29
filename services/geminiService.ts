@@ -27,14 +27,48 @@ const FOOD_IDENTIFICATION_SCHEMA = {
   required: ["name", "calories", "protein", "carbs", "fat", "sugar", "sodium"],
 };
 
+// ---------------------------------------------------------
+// API KEY MANAGEMENT
+// ---------------------------------------------------------
+
+// The key provided by the user to ensure immediate functionality
+const PROVIDED_KEY = "AIzaSyB5WVn3S1ZlbaepHJjq7rdCUuK9mVCrbjM";
+
+const getApiKey = (): string => {
+  // 1. Check for standard Vite/React env vars
+  const meta = import.meta as any;
+  if (typeof meta !== 'undefined' && meta.env) {
+    if (meta.env.VITE_API_KEY) return meta.env.VITE_API_KEY;
+    if (meta.env.REACT_APP_API_KEY) return meta.env.REACT_APP_API_KEY;
+  }
+
+  // 2. Check for standard Node/Next.js env vars (if polyfilled)
+  if (typeof process !== 'undefined' && process.env) {
+    if (process.env.API_KEY) return process.env.API_KEY;
+    if (process.env.VITE_API_KEY) return process.env.VITE_API_KEY;
+    if (process.env.REACT_APP_API_KEY) return process.env.REACT_APP_API_KEY;
+  }
+
+  // 3. Fallback to the provided key
+  return PROVIDED_KEY;
+};
+
 let aiClient: GoogleGenAI | null = null;
 
 const getAiClient = (): GoogleGenAI => {
   if (!aiClient) {
-    aiClient = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      throw new Error("API Key is missing. Please check your environment configuration.");
+    }
+    aiClient = new GoogleGenAI({ apiKey });
   }
   return aiClient;
 };
+
+// ---------------------------------------------------------
+// HELPERS
+// ---------------------------------------------------------
 
 // Helper to clean JSON string from Markdown wrapping and locate valid JSON object
 const cleanJson = (text: string): string => {
@@ -56,6 +90,10 @@ const cleanJson = (text: string): string => {
     return text;
   }
 };
+
+// ---------------------------------------------------------
+// AI SERVICES
+// ---------------------------------------------------------
 
 export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; macros: MacroNutrients } | null> => {
   try {
